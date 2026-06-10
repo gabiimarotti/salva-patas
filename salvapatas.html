@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salva Patas - Plataforma Integrada</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --primary: #8b5cf6;         /* Violeta/Roxo da logo */
+            --primary-dark: #7c3aed;    /* Violeta escuro */
+            --secondary: #1e1b4b;       /* Índigo escuro para o menu lateral */
+            --bg: #f8fafc;              /* Cinza ultra claro para background */
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #0f172a;       /* Slate escuro para textos */
+            --text-muted: #64748b;
+            --danger: #ef4444;          /* Vermelho moderno */
+            --warning: #f59e0b;         /* Laranja/Amarelo do cão da logo */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body { display: flex; height: 100vh; background-color: var(--bg); overflow: hidden; color: var(--text-main); }
+
+        /* SIDEBAR (MENU LATERAL) */
+        .sidebar {
+            width: 260px; background-color: var(--secondary); color: white;
+            display: flex; flex-direction: column; padding: 20px 0;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            font-size: 22px; font-weight: 700; padding: 0 20px 30px;
+            color: var(--primary); display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;
+        }
+
+        .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 5px; padding: 0 10px; }
+        
+        .nav-item {
+            padding: 12px 15px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; gap: 12px; font-weight: 500;
+            transition: all 0.2s; color: #cbd5e1;
+        }
+
+        .nav-item:hover, .nav-item.active { background-color: var(--primary); color: white; }
+        
+        .user-profile {
+            margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ccc; }
+
+        /* MAIN CONTENT AREA */
+        .main-content {
+            flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto;
+            position: relative;
+        }
+
+        .topbar {
+            background: var(--surface); padding: 15px 30px; display: flex;
+            justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+        }
+
+        .page-view { display: none; padding: 30px; animation: fadeIn 0.3s; }
+        .page-view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .page-header { margin-bottom: 30px; }
+        .page-header h1 { font-size: 28px; color: var(--secondary); margin-bottom: 5px; }
+        .page-header p { color: var(--text-muted); }
+
+        /* UTILITÁRIOS & COMPONENTES */
+        .card { background: var(--surface); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        
+        .btn { padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-danger { background: var(--danger); color: white; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; outline: none; }
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.1); }
+        
+        .upload-area { border: 2px dashed var(--border); padding: 40px; text-align: center; border-radius: 8px; cursor: pointer; background: #f8fafc; transition: 0.2s; }
+        .upload-area:hover { border-color: var(--primary); background: #f5f3ff; }
+
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-warning { background: #fef08a; color: #854d0e; }
+        .badge-orange { background: #ffedd5; color: #c2410c; }
+
+        /* ESTILOS ESPECÍFICOS - MAPA */
+        .map-layout { display: grid; grid-template-columns: 350px 1fr; gap: 20px; height: calc(100vh - 160px); }
+        #leaflet-map { width: 100%; height: 100%; border-radius: 12px; border: 2px solid var(--border); z-index: 1;}
+        .report-list { overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 10px; }
+        .report-card { padding: 15px; border-left: 4px solid var(--danger); }
+
+        /* ESTILOS ESPECÍFICOS - ADOÇÃO */
+        .adoption-layout { display: grid; grid-template-columns: 280px 1fr; gap: 30px; }
+        .pet-card { overflow: hidden; padding: 0; }
+        .pet-img { width: 100%; height: 200px; object-fit: cover; }
+        .pet-info { padding: 20px; }
+        .pet-tags { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+
+        /* ESTILOS ESPECÍFICOS - DOAÇÃO */
+        .progress-bar { width: 100%; height: 8px; background: var(--border); border-radius: 4px; margin: 10px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 4px; }
+
+        /* ESTILOS ESPECÍFICOS - TELA DE APOIO (CHECKOUT DE VAQUINHA) */
+        .checkout-layout { display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-top: 20px; }
+        .checkout-summary { position: sticky; top: 90px; height: fit-content; }
+        .checkout-summary-img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 15px; }
+        
+        .donation-values { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; margin-bottom: 15px; }
+        .value-btn {
+            padding: 12px; border: 2px solid var(--border); border-radius: 8px;
+            background: transparent; color: var(--text-main); font-weight: 600; font-size: 15px;
+            cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .value-btn:hover { border-color: var(--primary); color: var(--primary); background: #f5f3ff; }
+        .value-btn.active { border-color: var(--primary); color: white; background: var(--primary); }
+        
+        .payment-tabs { display: flex; border-bottom: 2px solid var(--border); margin: 20px 0; gap: 10px; }
+        .payment-tab {
+            padding: 12px 20px; cursor: pointer; border: none; background: transparent;
+            font-weight: 600; font-size: 14px; color: var(--text-muted); position: relative;
+            display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;
+        }
+        .payment-tab:hover { color: var(--primary); }
+        .payment-tab.active { color: var(--primary); }
+        .payment-tab.active::after {
+            content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
+            height: 2px; background: var(--primary); border-radius: 2px;
+        }
+        
+        .payment-pane { display: none; padding: 10px 0; }
+        .payment-pane.active { display: block; animation: fadeIn 0.2s ease-out; }
+        
+        /* Estilos do Pix */
+        .pix-container { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--border); }
+        .pix-qr { width: 160px; height: 160px; background: white; padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; }
+        .pix-copy-input { display: flex; width: 100%; max-width: 450px; gap: 10px; margin-top: 10px; }
+        
+        /* Estilos do Cartão */
+        .card-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; }
+        
+        /* Animações e Tela de Sucesso */
+        .success-container { text-align: center; padding: 40px 20px; animation: scaleUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .checkmark-wrapper { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.2); }
+        
+        @keyframes scaleUp {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; background: #334155; color: white;
+            padding: 12px 24px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            display: none; align-items: center; gap: 10px; font-weight: 500; font-size: 14px;
+            z-index: 9999; animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.7); display: none; align-items: center;
+            justify-content: center; z-index: 100; border-radius: 12px;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 4px solid var(--border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* REDESENHO VISUAL & PREMIUNIZAÇÃO */
+        body { background-color: #f8fafc; color: #0f172a; }
+        .card { border-radius: 16px; border: 1px solid rgba(226, 232, 240, 0.7); box-shadow: 0 4px 20px -2px rgba(148, 163, 184, 0.06); }
+        .sidebar { background-color: var(--secondary); padding: 24px 0; border-right: 1px solid rgba(255,255,255,0.05); }
+        .nav-item { padding: 12px 18px; margin: 2px 12px; border-radius: 10px; font-weight: 500; font-size: 14.5px; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .nav-item:hover { background-color: rgba(139, 92, 246, 0.15); color: #c084fc; }
+        .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
+        
+        .badge-notification { background: var(--danger); color: white; border-radius: 50%; padding: 2px 7px; font-size: 11px; font-weight: 700; margin-left: auto; display: inline-block; animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* BANNER E ELEMENTOS DA HOME */
+        .hero-banner {
+            background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);
+            border-radius: 20px; padding: 40px; color: white; position: relative;
+            overflow: hidden; margin-bottom: 30px; box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
+        }
+        .hero-banner::after {
+            content: ''; position: absolute; right: -50px; bottom: -50px;
+            width: 250px; height: 250px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08); z-index: 1;
+        }
+        .hero-banner-content { position: relative; z-index: 2; max-width: 60%; }
+        .hero-banner-content h2 { font-size: 32px; font-weight: 700; margin-bottom: 10px; line-height: 1.2; }
+        .hero-banner-content p { font-size: 16px; opacity: 0.9; margin-bottom: 20px; line-height: 1.5; }
+        
+        .horizontal-scroll { display: flex; gap: 20px; overflow-x: auto; padding: 10px 0 20px; scrollbar-width: none; }
+        .horizontal-scroll::-webkit-scrollbar { display: none; }
+        .tip-card { flex: 0 0 320px; background: white; border-radius: 14px; padding: 20px; border: 1px solid var(--border); transition: all 0.2s; cursor: pointer; }
+        .tip-card:hover { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,0.05); border-color: var(--primary); }
+        .tip-card i { font-size: 24px; color: var(--primary); margin-bottom: 12px; }
+
+        .story-card { flex: 0 0 360px; background: white; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); transition: all 0.2s; }
+        .story-card:hover { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,0.05); }
+        .story-img { width: 100%; height: 160px; object-fit: cover; }
+        .story-info { padding: 15px 20px; }
+
+        /* PAINEL ADMINISTRATIVO INTERNO (TABS) */
+        .tab-menu { display: flex; gap: 20px; border-bottom: 2px solid var(--border); margin-bottom: 25px; }
+        .tab-btn { padding: 10px 15px; font-weight: 600; font-size: 15px; color: var(--text-muted); border: none; background: transparent; cursor: pointer; position: relative; padding-bottom: 12px; transition: 0.2s; }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 3px; background: var(--primary); border-radius: 3px; }
+        
+        /* GESTÃO DE ANIMAIS */
+        .admin-pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .admin-pet-card { display: flex; gap: 15px; align-items: center; padding: 15px; border-radius: 12px; background: white; border: 1px solid var(--border); transition: 0.2s; }
+        .admin-pet-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .admin-pet-img { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; }
+        
+        /* MODAIS E FORMULÁRIOS */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.25s; backdrop-filter: blur(4px); }
+        .modal-box { background: white; border-radius: 16px; width: 100%; max-width: 550px; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        
+        /* CHAT LAYOUT */
+        .chat-container { display: grid; grid-template-columns: 320px 1fr; gap: 20px; height: calc(100vh - 160px); min-height: 500px; background: white; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+        
+        .chat-sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: #f8fafc; }
+        .chat-search { padding: 15px; border-bottom: 1px solid var(--border); }
+        .chat-contact-list { flex-grow: 1; overflow-y: auto; }
+        
+        .contact-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; cursor: pointer; transition: 0.2s; border-bottom: 1px solid rgba(226, 232, 240, 0.5); }
+        .contact-item:hover { background: #f1f5f9; }
+        .contact-item.active { background: #eef2ff; border-left: 4px solid var(--primary); }
+        .contact-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #ccc; }
+        .contact-details { flex-grow: 1; min-width: 0; }
+        .contact-name { font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+        .contact-preview { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+        
+        .chat-window { display: flex; flex-direction: column; height: 100%; background: #ffffff; }
+        .chat-header { display: flex; align-items: center; gap: 15px; padding: 15px 25px; border-bottom: 1px solid var(--border); background: white; }
+        
+        .chat-messages { flex-grow: 1; padding: 25px; overflow-y: auto; background: #f1f5f9; display: flex; flex-direction: column; gap: 15px; }
+        .chat-bubble { max-width: 65%; padding: 12px 18px; border-radius: 14px; font-size: 14px; line-height: 1.5; position: relative; word-wrap: break-word; }
+        .chat-bubble-received { background: white; color: var(--text-main); border-bottom-left-radius: 4px; align-self: flex-start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .chat-bubble-sent { background: var(--primary); color: white; border-bottom-right-radius: 4px; align-self: flex-end; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.15); }
+        .chat-message-time { font-size: 10px; opacity: 0.6; display: block; text-align: right; margin-top: 5px; }
+        .chat-bubble-sent .chat-message-time { color: rgba(255,255,255,0.8); }
+        
+        .chat-footer { display: flex; gap: 12px; padding: 15px 20px; border-top: 1px solid var(--border); background: white; align-items: center; }
+        .chat-input { flex-grow: 1; border: 1px solid var(--border); padding: 12px 16px; border-radius: 24px; font-size: 14px; outline: none; transition: 0.2s; }
+        .chat-input:focus { border-color: var(--primary); }
+        .chat-send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: 0.25s; }
+        .chat-send-btn:hover { background: var(--primary-dark); transform: scale(1.05); }
+
+        /* PERFIL DO LAR */
+        .profile-layout { display: grid; grid-template-columns: 280px 1fr; gap: 30px; }
+        .profile-avatar-container { position: relative; width: 140px; height: 140px; margin: 0 auto 20px; }
+        .profile-avatar-large { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid var(--border); }
+        .profile-avatar-upload { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 36px; height: 36px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .profile-avatar-upload:hover { background: var(--primary-dark); }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <img src="logo.jpeg" alt="Salva Patas Logo" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: white; padding: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+            <span style="color: white; margin-left: 2px;">Salva Patas</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="switchPage('home')"><i class="fa-solid fa-chart-pie"></i> Painel Inicial</li>
+            <li class="nav-item" onclick="switchPage('painel-lar')"><i class="fa-solid fa-sliders"></i> Painel do Lar</li>
+            <li class="nav-item" onclick="switchPage('mapa')"><i class="fa-solid fa-map-location-dot"></i> Mapa de Resgate</li>
+            <li class="nav-item" onclick="switchPage('cadastro')"><i class="fa-solid fa-file-circle-plus"></i> Cadastro de Animal</li>
+            <li class="nav-item" onclick="switchPage('adocao')"><i class="fa-solid fa-heart"></i> Vitrine de Adoção</li>
+            <li class="nav-item" onclick="switchPage('doacao')"><i class="fa-solid fa-hand-holding-dollar"></i> Apoio e Vaquinhas</li>
+            <li class="nav-item" onclick="switchPage('chat')" style="position: relative;"><i class="fa-solid fa-comments"></i> Mensagens <span class="badge-notification">3</span></li>
+            <li class="nav-item" onclick="switchPage('perfil-lar')"><i class="fa-solid fa-user-gear"></i> Perfil do Lar</li>
+        </ul>
+        <div class="user-profile" onclick="switchPage('perfil-lar')" style="cursor: pointer; transition: 0.2s; border-radius: 10px; margin: auto 12px 10px; padding: 12px; background-color: rgba(255, 255, 255, 0.03);">
+            <img id="sidebar-user-avatar" src="https://i.pravatar.cc/100?img=33" alt="User" class="user-avatar" style="border: 2px solid rgba(255,255,255,0.2);">
+            <div>
+                <div id="sidebar-user-name" style="font-weight: 600; font-size: 14px; color: white;">ONG Vida Animal</div>
+                <div id="sidebar-user-location" style="font-size: 12px; color: #cbd5e1;">Maringá, PR</div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div style="font-weight: 500; color: var(--text-muted);"><i class="fa-regular fa-calendar"></i> Visão Geral - Junho 2026</div>
+            <div style="display: flex; gap: 15px;">
+                <button class="btn btn-outline" style="padding: 8px 12px;"><i class="fa-regular fa-bell"></i></button>
+                <button class="btn btn-primary" onclick="switchPage('mapa')"><i class="fa-solid fa-triangle-exclamation"></i> Reportar Urgência</button>
+            </div>
+        </div>
+
+        <div id="page-home" class="page-view active">
+            <!-- Hero Banner -->
+            <div class="hero-banner">
+                <div class="hero-banner-content">
+                    <h2>Bem-vindo de Volta!</h2>
+                    <p>Sua dedicação como Lar Temporário ajuda a transformar a vida de dezenas de animais resgatados todos os dias. Vamos salvar mais uma vida hoje?</p>
+                    <div style="display: flex; gap: 15px;">
+                        <button type="button" class="btn btn-primary" style="background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.15);" onclick="switchPage('painel-lar')">
+                            <i class="fa-solid fa-sliders"></i> Acessar Painel do Lar
+                        </button>
+                        <button type="button" class="btn btn-outline" style="border-color: rgba(255,255,255,0.7); color: white;" onclick="switchPage('cadastro')">
+                            <i class="fa-solid fa-plus"></i> Cadastrar Animal
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dicas para Lar Temporário (Horizontal Scroll) -->
+            <h3 style="margin-bottom: 15px; font-size: 18px; color: var(--text-main); font-weight: 700;">Dicas & Recomendações para Lares Temporários</h3>
+            <div class="horizontal-scroll" style="margin-bottom: 30px;">
+                <div class="tip-card" onclick="alert('Dica: Forneça um cantinho isolado para o novo gato nos primeiros 3 dias. Isso reduz o estresse da transição significativamente!')">
+                    <i class="fa-solid fa-house-chimney-medical"></i>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 5px;">Ambiente de Adaptação</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Como preparar um local seguro e silencioso para receber novos resgatados.</p>
+                </div>
+                <div class="tip-card" onclick="alert('Dica: Animais debilitados necessitam de ração super premium e fracionamento de refeições em pequenas porções para evitar vômitos!')">
+                    <i class="fa-solid fa-prescription-bottle-medical"></i>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 5px;">Alimentação & Saúde</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Cuidados essenciais e alimentação recomendada para animais debilitados.</p>
+                </div>
+                <div class="tip-card" onclick="alert('Dica: Deixe o animal tímido se aproximar no tempo dele. Ofereça sachês ou petiscos para criar associações positivas.')">
+                    <i class="fa-solid fa-dog"></i>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 5px;">Socialização & Medo</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Técnicas de reforço positivo para acalmar cães e gatos muito assustados.</p>
+                </div>
+                <div class="tip-card" onclick="alert('Dica: Lares temporários são pontes! Registre fotos bonitas e vídeos divertidos para acelerar a adoção na vitrine.')">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 5px;">Divulgação Criativa</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Como tirar fotos incríveis dos pets para destacar seus perfis na vitrine.</p>
+                </div>
+            </div>
+
+            <!-- Duas Colunas: Casos de Sucesso (Esquerda) e Avisos da Comunidade (Direita) -->
+            <div class="grid-2">
+                <div class="card" style="display: flex; flex-direction: column; gap: 15px;">
+                    <h3 style="font-size: 18px; font-weight: 700;">Casos de Sucesso Recentes</h3>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; gap: 15px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+                            <img src="https://images.unsplash.com/photo-1534361960057-19889db9621e?auto=format&fit=crop&w=150&q=80" style="width: 60px; height: 60px; border-radius: 10px; object-fit: cover;">
+                            <div>
+                                <h4 style="font-size: 14px; font-weight: 700;">Mel foi adotada!</h4>
+                                <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.4; margin-top: 2px;">Mel passou 3 meses na ONG Vida Animal e agora vive em uma chácara com muito espaço.</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <img src="https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=150&q=80" style="width: 60px; height: 60px; border-radius: 10px; object-fit: cover;">
+                            <div>
+                                <h4 style="font-size: 14px; font-weight: 700;">Pipoca ganhou um lar!</h4>
+                                <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.4; margin-top: 2px;">Resgatado debaixo de chuva, o gatinho Pipoca foi adotado por uma família amorosa no Centro.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="display: flex; flex-direction: column; gap: 15px;">
+                    <h3 style="font-size: 18px; font-weight: 700;">Mural de Avisos da Comunidade</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="padding: 12px; border-radius: 10px; background: #f8fafc; border-left: 4px solid var(--primary);">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--primary);">CAMPANHA DO AGASALHO</span>
+                            <p style="font-size: 13px; font-weight: 500; margin-top: 3px;">Estamos recolhendo cobertores e caminhas velhas para os lares parceiros.</p>
+                        </div>
+                        <div style="padding: 12px; border-radius: 10px; background: #f8fafc; border-left: 4px solid var(--warning);">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--warning);">MUTIRÃO NO SÁBADO</span>
+                            <p style="font-size: 13px; font-weight: 500; margin-top: 3px;">Precisamos de voluntários para transporte de rações da sede central até as ONGs.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-painel-lar" class="page-view">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px;">
+                <div>
+                    <h1>Painel do Lar Temporário</h1>
+                    <p>Gerencie seus animais hospedados, histórico de adoções e recursos.</p>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <button type="button" class="btn btn-outline" onclick="abrirModalInsumos()">
+                        <i class="fa-solid fa-box-open"></i> Gerenciar Insumos
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="abrirModalVaquinha()">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Criar Vaquinha
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard de Indicadores do Lar -->
+            <div class="grid-3" style="margin-bottom: 30px;">
+                <div class="card" style="display: flex; align-items: center; gap: 20px; padding: 20px;">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #eef2ff; color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fa-solid fa-paw"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--text-muted); font-size: 13px; font-weight: 500;">Hospedados Ativos</h4>
+                        <div id="lar-total-ativos" style="font-size: 28px; font-weight: 700; color: var(--text-main); margin-top: 5px;">1</div>
+                    </div>
+                </div>
+                <div class="card" style="display: flex; align-items: center; gap: 20px; padding: 20px;">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--text-muted); font-size: 13px; font-weight: 500;">Adotados com Sucesso</h4>
+                        <div id="lar-total-adotados" style="font-size: 28px; font-weight: 700; color: var(--text-main); margin-top: 5px;">2</div>
+                    </div>
+                </div>
+                <div class="card" style="display: flex; align-items: center; gap: 20px; padding: 20px;">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #fffbeb; color: var(--warning); display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--text-muted); font-size: 13px; font-weight: 500;">Minhas Vaquinhas</h4>
+                        <div id="lar-total-vaquinhas" style="font-size: 28px; font-weight: 700; color: var(--text-main); margin-top: 5px;">1</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Abas internas -->
+            <div class="tab-menu">
+                <button type="button" id="tab-btn-hospedados" class="tab-btn active" onclick="switchAbaLar('hospedados')">Animais Hospedados</button>
+                <button type="button" id="tab-btn-adotados" class="tab-btn" onclick="switchAbaLar('adotados')">Histórico de Adoções</button>
+            </div>
+
+            <!-- Conteúdo da Aba 1: Animais Hospedados -->
+            <div id="pane-lar-hospedados" class="tab-content">
+                <div id="lar-hospedados-grid" class="admin-pet-grid">
+                    <!-- Renderizado dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Conteúdo da Aba 2: Histórico de Adoções -->
+            <div id="pane-lar-adotados" class="tab-content" style="display: none;">
+                <div id="lar-adotados-grid" class="admin-pet-grid">
+                    <!-- Renderizado dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Modal Criar Vaquinha -->
+            <div id="modal-vaquinha" class="modal-overlay">
+                <div class="modal-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 18px; font-weight: 700; color: var(--secondary);"><i class="fa-solid fa-bullhorn" style="color: var(--primary);"></i> Criar Nova Vaquinha</h3>
+                        <button type="button" class="btn btn-outline" style="padding: 5px 10px; border: none; font-size: 18px; cursor: pointer;" onclick="fecharModalVaquinha()">&times;</button>
+                    </div>
+                    <form id="modal-vaquinha-form" onsubmit="criarVaquinhaLar(event)">
+                        <div class="form-group">
+                            <label>Título da Vaquinha *</label>
+                            <input type="text" id="vaquinha-titulo" class="form-control" placeholder="Ex: Cirurgia no fêmur do Thor" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Meta de Arrecadação (R$) *</label>
+                            <input type="number" id="vaquinha-meta" class="form-control" placeholder="Ex: 1500" min="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição e Objetivo *</label>
+                            <textarea id="vaquinha-descricao" class="form-control" rows="4" placeholder="Descreva brevemente para que serve a doação..." required></textarea>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px;">
+                            <button type="button" class="btn btn-outline" onclick="fecharModalVaquinha()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Criar Vaquinha</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal Gerenciar Insumos -->
+            <div id="modal-insumos" class="modal-overlay">
+                <div class="modal-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 18px; font-weight: 700; color: var(--secondary);"><i class="fa-solid fa-box" style="color: var(--primary);"></i> Gerenciar Insumos do Lar</h3>
+                        <button type="button" class="btn btn-outline" style="padding: 5px 10px; border: none; font-size: 18px; cursor: pointer;" onclick="fecharModalInsumos()">&times;</button>
+                    </div>
+                    <form id="modal-insumos-form" onsubmit="processarInsumosLar(event)">
+                        <div class="form-group">
+                            <label>Insumo / Produto *</label>
+                            <select id="insumo-produto" class="form-control">
+                                <option value="Ração Filhotes (Gatos)">Ração Filhotes (Gatos)</option>
+                                <option value="Vermífugo / Antipulgas">Vermífugo / Antipulgas</option>
+                                <option value="Cobertores e Caminhas">Cobertores e Caminhas</option>
+                                <option value="Ração Adulto (Cães)">Ração Adulto (Cães)</option>
+                                <option value="Medicamento Anti-inflamatório">Medicamento Anti-inflamatório</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade *</label>
+                            <input type="number" id="insumo-quantidade" class="form-control" placeholder="Ex: 5" min="1" required value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Ação Desejada *</label>
+                            <select id="insumo-acao" class="form-control" onchange="atualizarLabelJustificativa(this.value)">
+                                <option value="solicitar">Solicitar Doação no Mural (Faltando)</option>
+                                <option value="retirar">Retirar do Estoque Central (Consumo)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label id="insumo-justificativa-label">Justificativa / Observação *</label>
+                            <textarea id="insumo-justificativa" class="form-control" rows="3" placeholder="Ex: Recebemos 3 filhotes e estamos sem ração..." required></textarea>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px;">
+                            <button type="button" class="btn btn-outline" onclick="fecharModalInsumos()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="insumo-submit-btn">Solicitar Doação</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-cadastro" class="page-view">
+            <div class="page-header">
+                <h1>Cadastro de Animal</h1>
+                <p>Insira os dados detalhados para inclusão no sistema de adoção ou lar temporário.</p>
+            </div>
+            
+            <div class="card" style="max-width: 900px;">
+                <form id="cadastro-form" onsubmit="cadastrarAnimal(event)">
+                    <div class="grid-2">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Fotos do Animal</label>
+                            <input type="file" id="cadastro-foto" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                            <div id="upload-area" class="upload-area" onclick="document.getElementById('cadastro-foto').click()">
+                                <div id="upload-prompt">
+                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 32px; color: var(--primary); margin-bottom: 15px;"></i>
+                                    <h3>Clique ou arraste as fotos aqui</h3>
+                                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">Formatos suportados: JPG, PNG (Max. 5MB)</p>
+                                </div>
+                                <div id="upload-preview" style="display: none; position: relative; width: 100%; max-height: 250px; overflow: hidden; border-radius: 8px;">
+                                    <img id="upload-preview-img" src="" style="width: 100%; height: 200px; object-fit: contain;">
+                                    <button type="button" class="btn btn-danger" style="position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 12px;" onclick="removerPreviewImagem(event)">
+                                        <i class="fa-solid fa-trash"></i> Remover
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nome do Animal</label>
+                            <input type="text" id="cadastro-nome" class="form-control" placeholder="Ex: Thor, Luna (Deixe em branco se não souber)">
+                        </div>
+                        <div class="form-group">
+                            <label>Espécie e Sexo</label>
+                            <div style="display: flex; gap: 10px;">
+                                <select id="cadastro-especie" class="form-control" style="flex: 1.5;">
+                                    <option value="Cachorro">Cachorro</option>
+                                    <option value="Gato">Gato</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                                <select id="cadastro-sexo" class="form-control" style="flex: 1;">
+                                    <option value="Macho">Macho</option>
+                                    <option value="Fêmea">Fêmea</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Porte</label>
+                            <select id="cadastro-porte" class="form-control">
+                                <option value="Pequeno">Pequeno (até 10kg)</option>
+                                <option value="Médio">Médio (11 a 25kg)</option>
+                                <option value="Grande">Grande (mais de 25kg)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Idade Estimada</label>
+                            <input type="text" id="cadastro-idade" class="form-control" placeholder="Ex: 2 meses, 3 anos">
+                        </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Condição e Saúde</label>
+                            <div style="display: flex; gap: 20px; margin-top: 10px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: 400;"><input type="checkbox" id="cadastro-castrado"> Castrado(a)</label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: 400;"><input type="checkbox" id="cadastro-vacinado"> Vacinado(a)</label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: 400;"><input type="checkbox" id="cadastro-vermifugado"> Vermifugado(a)</label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: 400;"><input type="checkbox" id="cadastro-especial"> Necessidade Especial</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Descrição e Comportamento</label>
+                            <textarea id="cadastro-descricao" class="form-control" rows="4" placeholder="Descreva a história do animal, temperamento com crianças/outros animais, etc..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+                    
+                    <div style="display: flex; justify-content: flex-end; gap: 15px;">
+                        <button type="button" class="btn btn-outline" onclick="switchPage('home')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Salvar e Publicar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="page-mapa" class="page-view">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h1>Mapa de Resgate & Alertas</h1>
+                    <p>Mapeamento interativo de animais em situação de rua ou vulnerabilidade.</p>
+                </div>
+                <button class="btn btn-danger" onclick="abrirModalReportar()"><i class="fa-solid fa-location-crosshairs"></i> Reportar Animal Avistado</button>
+            </div>
+
+            <div class="map-layout">
+                <div class="card report-list">
+                    <h3 style="font-size: 16px; margin-bottom: 15px;">Alertas Próximos a Você</h3>
+                    <div id="alertas-list" style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- Renderizado dinamicamente via JS -->
+                    </div>
+                </div>
+
+                <div id="leaflet-map"></div>
+            </div>
+        </div>
+
+        <div id="page-adocao" class="page-view">
+            <div class="page-header">
+                <h1>Vitrine de Adoção Responsável</h1>
+                <p>Encontre seu novo melhor amigo. Utilize os filtros para uma busca mais precisa.</p>
+            </div>
+
+            <div class="adoption-layout">
+                <div class="card" style="height: fit-content;">
+                    <h3 style="margin-bottom: 20px; font-size: 16px;"><i class="fa-solid fa-filter"></i> Filtros de Busca</h3>
+                    
+                    <div class="form-group">
+                        <label>Localização</label>
+                        <input type="text" id="filtro-localizacao" class="form-control" placeholder="Digite a cidade ou bairro" value="Maringá, PR">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Espécie</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                            <label><input type="radio" name="specie" value="Todos" checked> Todos</label>
+                            <label><input type="radio" name="specie" value="Cachorro"> Cachorros</label>
+                            <label><input type="radio" name="specie" value="Gato"> Gatos</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Porte do Animal</label>
+                        <div style="display: flex; gap: 10px; margin-top: 5px;">
+                            <button type="button" class="badge badge-blue filtro-porte-btn active" data-porte="Todos" onclick="selecionarFiltroPorte('Todos', this)">Todos</button>
+                            <button type="button" class="badge badge-blue filtro-porte-btn" data-porte="Pequeno" style="background:#f1f5f9; color:var(--text-muted); border:none; cursor:pointer;" onclick="selecionarFiltroPorte('Pequeno', this)">Peq</button>
+                            <button type="button" class="badge badge-blue filtro-porte-btn" data-porte="Médio" style="background:#f1f5f9; color:var(--text-muted); border:none; cursor:pointer;" onclick="selecionarFiltroPorte('Médio', this)">Méd</button>
+                            <button type="button" class="badge badge-blue filtro-porte-btn" data-porte="Grande" style="background:#f1f5f9; color:var(--text-muted); border:none; cursor:pointer;" onclick="selecionarFiltroPorte('Grande', this)">Grd</button>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="aplicarFiltrosAdocao()">Aplicar Filtros</button>
+                </div>
+
+                <div id="pet-grid" class="grid-3">
+                    <!-- Renderizado dinamicamente via JS -->
+                </div>
+            </div>
+        </div>
+
+        <div id="page-doacao" class="page-view">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h1>Apoio Financeiro e Doação de Itens</h1>
+                    <p>Contribua com campanhas verificadas ou doe insumos para quem precisa.</p>
+                </div>
+                <button class="btn btn-outline"><i class="fa-solid fa-box-open"></i> Quero Doar Ração/Medicamentos</button>
+            </div>
+
+            <h3 style="margin-bottom: 20px; font-size: 18px;">Vaquinhas em Destaque (Emergências)</h3>
+            <div id="vaquinhas-container" class="grid-2" style="margin-bottom: 40px;">
+                <!-- Renderizado dinamicamente via JS -->
+            </div>
+
+            <h3 style="margin-bottom: 20px; font-size: 18px;">Mural de Necessidades (Itens Físicos)</h3>
+            <div id="mural-insumos-container" class="grid-4">
+                <!-- Renderizado dinamicamente via JS -->
+            </div>
+        </div>
+
+        <div id="page-apoiar" class="page-view">
+            <!-- Loading Overlay -->
+            <div id="apoio-loading" class="loading-overlay">
+                <div class="spinner"></div>
+            </div>
+
+            <div class="page-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <button type="button" class="btn btn-outline" onclick="switchPage('doacao')" style="padding: 8px 15px;">
+                    <i class="fa-solid fa-arrow-left"></i> Voltar
+                </button>
+                <div>
+                    <h1>Apoiar Campanha Financeiramente</h1>
+                    <p>Você está ajudando a salvar uma vida. Complete sua contribuição abaixo.</p>
+                </div>
+            </div>
+
+            <!-- Formulário e checkout (oculto quando concluído) -->
+            <div id="apoio-checkout-flow" class="checkout-layout">
+                <!-- Coluna da Esquerda: Resumo da Vaquinha -->
+                <div class="card checkout-summary">
+                    <img id="apoio-img" src="" alt="Imagem da vaquinha" class="checkout-summary-img">
+                    <h2 id="apoio-titulo" style="font-size: 18px; margin-bottom: 10px; color: var(--secondary);">Título</h2>
+                    <p id="apoio-desc" style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">Descrição</p>
+                    
+                    <hr style="border: 0; border-top: 1px solid var(--border); margin: 15px 0;">
+                    
+                    <div style="margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 5px;">
+                            <span id="apoio-arrecadado-lbl">Arrecadado: R$ 0</span>
+                            <span id="apoio-meta-lbl" style="color: var(--text-muted);">Meta: R$ 0</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="apoio-progresso-bar" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna da Direita: Seleção de valor e pagamento -->
+                <div class="card" style="position: relative;">
+                    <form id="apoio-form" onsubmit="processarDoacao(event)">
+                        <h3 style="font-size: 16px; margin-bottom: 10px;"><i class="fa-solid fa-hand-holding-heart" style="color: var(--primary);"></i> 1. Selecione o Valor da Doação</h3>
+                        <div class="donation-values">
+                            <button type="button" class="value-btn" onclick="selecionarValor(20, this)">R$ 20</button>
+                            <button type="button" class="value-btn active" onclick="selecionarValor(50, this)">R$ 50</button>
+                            <button type="button" class="value-btn" onclick="selecionarValor(100, this)">R$ 100</button>
+                            <button type="button" class="value-btn" onclick="selecionarValor(200, this)">R$ 200</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Outro Valor (R$)</label>
+                            <input type="number" id="apoio-valor-customizado" class="form-control" placeholder="Digite outro valor. Ex: 35" min="1" step="any" oninput="selecionarValorCustomizado(this.value)">
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--border); margin: 25px 0;">
+
+                        <h3 style="font-size: 16px; margin-bottom: 15px;"><i class="fa-solid fa-user" style="color: var(--primary);"></i> 2. Identificação do Doador</h3>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Nome Completo *</label>
+                                <input type="text" id="doador-nome" class="form-control" placeholder="Seu nome" required value="Gabriel Maroto">
+                            </div>
+                            <div class="form-group">
+                                <label>E-mail *</label>
+                                <input type="email" class="form-control" placeholder="seuemail@exemplo.com" required value="gabriel@vidaanimal.org">
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>CPF *</label>
+                                <input type="text" class="form-control" placeholder="000.000.000-00" required value="123.456.789-00">
+                            </div>
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--border); margin: 25px 0;">
+
+                        <h3 style="font-size: 16px; margin-bottom: 10px;"><i class="fa-solid fa-credit-card" style="color: var(--primary);"></i> 3. Forma de Pagamento</h3>
+                        
+                        <div class="payment-tabs">
+                            <button type="button" id="tab-pix" class="payment-tab active" onclick="switchMetodoPagamento('pix')">
+                                <i class="fa-brands fa-pix" style="color: #32bcad;"></i> Pix
+                            </button>
+                            <button type="button" id="tab-cartao" class="payment-tab" onclick="switchMetodoPagamento('cartao')">
+                                <i class="fa-solid fa-credit-card"></i> Cartão de Crédito
+                            </button>
+                            <button type="button" id="tab-boleto" class="payment-tab" onclick="switchMetodoPagamento('boleto')">
+                                <i class="fa-solid fa-barcode"></i> Boleto Bancário
+                            </button>
+                        </div>
+
+                        <!-- Painel Pix -->
+                        <div id="pane-pix" class="payment-pane active">
+                            <div class="pix-container">
+                                <div class="pix-qr">
+                                    <svg viewBox="0 0 100 100" width="100%" height="100%">
+                                        <rect width="100" height="100" fill="white"/>
+                                        <path d="M10,10 h30 v30 h-30 z M15,15 h20 v20 h-20 z M22,22 h6 v6 h-6 z" fill="var(--primary)"/>
+                                        <path d="M60,10 h30 v30 h-30 z M65,15 h20 v20 h-20 z M72,22 h6 v6 h-6 z" fill="var(--primary)"/>
+                                        <path d="M10,60 h30 v30 h-30 z M15,65 h20 v20 h-20 z M22,72 h6 v6 h-6 z" fill="var(--primary)"/>
+                                        <path d="M45,10 h10 v10 h-10 z M45,25 h10 v20 h-10 z M10,45 h20 v10 h-20 z" fill="#1e293b"/>
+                                        <path d="M60,45 h15 v10 h-15 z M80,45 h10 v35 h-10 z M45,60 h10 v30 h-10 z" fill="#1e293b"/>
+                                        <path d="M60,60 h15 v15 h-15 z M60,80 h15 v10 h-15 z M75,80 h5 v5 h-5 z" fill="#1e293b"/>
+                                    </svg>
+                                </div>
+                                <p style="font-size: 14px; font-weight: 500; margin-bottom: 5px;">Escaneie o QR Code acima ou copie a chave Pix</p>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; max-width: 380px;">Após o pagamento, o Salva Patas receberá a confirmação instantaneamente.</p>
+                                
+                                <div class="pix-copy-input">
+                                    <input type="text" id="pix-key-input" class="form-control" style="font-family: monospace; font-size: 12px;" readonly value="00020126580014br.gov.bcb.pix0136salvapatas-pix-key-1234567895204000053039865802BR5915Salva%20Patas%20ONG6007Maringa62070503***6304D3F9">
+                                    <button type="button" class="btn btn-outline" onclick="copiarTexto('pix-key-input', 'Chave Pix copiada!')">
+                                        <i class="fa-regular fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Painel Cartão -->
+                        <div id="pane-cartao" class="payment-pane">
+                            <div class="form-group">
+                                <label>Número do Cartão *</label>
+                                <div style="position: relative;">
+                                    <input type="text" id="cc-number" class="form-control" placeholder="0000 0000 0000 0000">
+                                    <i class="fa-solid fa-credit-card" style="position: absolute; right: 12px; top: 12px; color: var(--text-muted);"></i>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nome impresso no cartão *</label>
+                                <input type="text" id="cc-name" class="form-control" placeholder="Ex: GABRIEL MAROTO">
+                            </div>
+                            <div class="card-grid">
+                                <div class="form-group">
+                                    <label>Validade *</label>
+                                    <input type="text" id="cc-expiry" class="form-control" placeholder="MM/AA">
+                                </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label>CVV *</label>
+                                    <input type="text" id="cc-cvv" class="form-control" placeholder="123">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Painel Boleto -->
+                        <div id="pane-boleto" class="payment-pane">
+                            <div class="pix-container" style="background: #fafaf9;">
+                                <i class="fa-solid fa-barcode" style="font-size: 48px; color: var(--secondary); margin-bottom: 15px;"></i>
+                                <p style="font-size: 14px; font-weight: 500; margin-bottom: 5px;">Código de Barras do Boleto</p>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px; max-width: 400px;">O boleto leva de 1 a 2 dias úteis para compensar após o pagamento.</p>
+                                
+                                <div class="pix-copy-input">
+                                    <input type="text" id="boleto-barcode" class="form-control" style="font-family: monospace; font-size: 12px;" readonly value="34191.79001 01043.513184 91020.150008 7 98250000005000">
+                                    <button type="button" class="btn btn-outline" onclick="copiarTexto('boleto-barcode', 'Código do boleto copiado!')">
+                                        <i class="fa-regular fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="apoio-btn-submit" class="btn btn-primary" style="width: 100%; margin-top: 25px; padding: 14px; font-size: 16px;">
+                            Confirmar Apoio de R$ 50,00
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tela de Sucesso (Exibida pós-processamento) -->
+            <div id="apoio-sucesso" class="card success-container" style="display: none; max-width: 600px; margin: 40px auto 0;">
+                <div class="checkmark-wrapper">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h2 style="font-size: 24px; color: var(--secondary); margin-bottom: 10px;">Apoio Confirmado com Sucesso!</h2>
+                <p style="color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+                    Muito obrigado, <strong id="sucesso-doador">Gabriel</strong>! Sua doação de <strong id="sucesso-valor">R$ 50,00</strong> para a campanha "<span id="sucesso-campanha" style="font-weight: 600;">Campanha</span>" foi recebida com sucesso.
+                </p>
+                <div style="background: #f5f3ff; border: 1px solid #ddd6fe; padding: 15px; border-radius: 8px; margin-bottom: 25px; text-align: left;">
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: var(--primary-dark);">Impacto no Progresso:</div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; margin-bottom: 5px;">
+                        <span id="sucesso-progresso-lbl">R$ 0 arrecadados</span>
+                        <span id="sucesso-meta-lbl" style="color: var(--text-muted);">Meta: R$ 0</span>
+                    </div>
+                    <div class="progress-bar" style="background: #e2e8f0;">
+                        <div id="sucesso-progresso-bar" class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="finalizarRetornoCampanhas()" style="padding: 12px 30px;">
+                    <i class="fa-solid fa-circle-chevron-left"></i> Voltar para Vaquinhas
+                </button>
+            </div>
+        </div>
+
+        <div id="page-chat" class="page-view">
+            <div class="page-header">
+                <h1>Mensagens & Adotantes</h1>
+                <p>Converse com adotantes interessados nos animais hospedados no seu lar.</p>
+            </div>
+            
+            <div class="chat-container">
+                <!-- Barra Lateral de Contatos -->
+                <div class="chat-sidebar">
+                    <div class="chat-search">
+                        <div style="position: relative;">
+                            <input type="text" class="form-control" placeholder="Buscar conversa..." style="padding-left: 35px; border-radius: 20px; font-size: 13px;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 12px; color: var(--text-muted); font-size: 13px;"></i>
+                        </div>
+                    </div>
+                    <div id="chat-contacts" class="chat-contact-list">
+                        <!-- Carregado via JS -->
+                    </div>
+                </div>
+
+                <!-- Janela de Conversa Ativa -->
+                <div class="chat-window">
+                    <div class="chat-header">
+                        <img id="chat-active-avatar" src="https://i.pravatar.cc/100?img=1" class="contact-avatar" alt="Avatar">
+                        <div>
+                            <h3 id="chat-active-name" style="font-size: 15px; font-weight: 700; color: var(--text-main);">Doador</h3>
+                            <span id="chat-active-status" style="font-size: 12px; color: #10b981; font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 8px; margin-right: 5px;"></i> Online</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Balões de Mensagem -->
+                    <div id="chat-viewport" class="chat-messages">
+                        <!-- Carregado via JS -->
+                    </div>
+                    
+                    <!-- Entrada de Mensagem -->
+                    <form id="chat-form" onsubmit="enviarMensagemChat(event)" class="chat-footer">
+                        <input type="text" id="chat-input-field" class="chat-input" placeholder="Digite sua mensagem aqui..." autocomplete="off">
+                        <button type="submit" class="chat-send-btn">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-perfil-lar" class="page-view">
+            <div class="page-header">
+                <h1>Perfil do Lar Temporário</h1>
+                <p>Edite suas informações e gerencie a capacidade do seu abrigo.</p>
+            </div>
+
+            <div class="card" style="max-width: 900px; margin: 0 auto;">
+                <form id="perfil-lar-form" onsubmit="salvarPerfilLar(event)">
+                    <div class="profile-layout">
+                        <!-- Coluna Esquerda: Avatar e Indicadores de Ocupação -->
+                        <div style="text-align: center; border-right: 1px solid var(--border); padding-right: 20px;">
+                            <div class="profile-avatar-container">
+                                <img id="perfil-avatar" src="https://i.pravatar.cc/100?img=33" class="profile-avatar-large" alt="ONG Logo">
+                                <button type="button" class="profile-avatar-upload" onclick="alert('Funcionalidade de upload de logo do lar ativada! (Simulação)')">
+                                    <i class="fa-solid fa-camera"></i>
+                                </button>
+                            </div>
+                            <h3 id="perfil-name-side" style="font-size: 18px; font-weight: 700; color: var(--secondary);">ONG Vida Animal</h3>
+                            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Lar Parceiro Oficial</p>
+                            
+                            <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+                            
+                            <div style="text-align: left; padding: 0 10px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Capacidade de Vagas:</div>
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                                    <span>Hospedados Atuais: <strong id="perfil-hospedados-atual">1</strong></span>
+                                    <span>Total: <strong id="perfil-capacidade-lbl">10</strong></span>
+                                </div>
+                                <div class="progress-bar" style="height: 10px;">
+                                    <div id="perfil-capacidade-bar" class="progress-fill" style="width: 10%; background: var(--primary);"></div>
+                                </div>
+                                <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Você possui <span id="perfil-vagas-restantes">9</span> vagas restantes no momento.</p>
+                            </div>
+                        </div>
+
+                        <!-- Coluna Direita: Dados de Configuração -->
+                        <div>
+                            <div class="grid-2">
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label>Nome do Lar Temporário / ONG *</label>
+                                    <input type="text" id="perfil-input-nome" class="form-control" value="ONG Vida Animal" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cidade / Estado *</label>
+                                    <input type="text" id="perfil-input-local" class="form-control" value="Maringá, PR" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Capacidade Total de Pets *</label>
+                                    <input type="number" id="perfil-input-capacidade" class="form-control" value="10" min="1" required oninput="atualizarVagasPreview()">
+                                </div>
+                                <div class="form-group">
+                                    <label>E-mail de Contato *</label>
+                                    <input type="email" id="perfil-input-email" class="form-control" value="contato@vidaanimal.org" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Telefone / WhatsApp *</label>
+                                    <input type="text" id="perfil-input-telefone" class="form-control" value="(44) 99887-6655" required>
+                                </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label>Sobre o Lar / História</label>
+                                    <textarea id="perfil-input-descricao" class="form-control" rows="4" placeholder="Fale um pouco sobre o seu trabalho de lar temporário...">ONG parceira fundada em Maringá focada na reabilitação e abrigo temporário de cães e gatos de rua, preparando-os para adoção definitiva.</textarea>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Reportar Animal de Rua -->
+    <div id="modal-reportar" class="modal-overlay">
+        <div class="modal-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--secondary);"><i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i> Reportar Animal Avistado</h3>
+                <button type="button" class="btn btn-outline" style="padding: 5px 10px; border: none; font-size: 18px; cursor: pointer;" onclick="fecharModalReportar()">&times;</button>
+            </div>
+            <form id="modal-reportar-form" onsubmit="salvarReporte(event)">
+                <div class="form-group">
+                    <label>Título / Ocorrência *</label>
+                    <input type="text" id="reporte-titulo" class="form-control" placeholder="Ex: Cachorro machucado, Gato preso em árvore" required>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Categoria do Alerta *</label>
+                        <select id="reporte-categoria" class="form-control" required>
+                            <option value="Urgente">Urgente (Resgate imediato)</option>
+                            <option value="Alimentação">Alimentação (Precisa de comida/água)</option>
+                            <option value="Abandono">Abandono (Suspeita de descarte)</option>
+                            <option value="Perdido">Perdido (Procura-se dono)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Endereço / Referência *</label>
+                        <input type="text" id="reporte-endereco" class="form-control" placeholder="Ex: Praça da Catedral, Centro" required>
+                    </div>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Latitude *</label>
+                        <input type="text" id="reporte-lat" class="form-control" placeholder="Ex: -23.4250" readonly required>
+                    </div>
+                    <div class="form-group">
+                        <label>Longitude *</label>
+                        <input type="text" id="reporte-lng" class="form-control" placeholder="Ex: -51.9380" readonly required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição e Detalhes Adicionais</label>
+                    <textarea id="reporte-descricao" class="form-control" rows="3" placeholder="Descreva o estado do animal, cor, se é dócil, etc."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Foto do Animal (Opcional)</label>
+                    <input type="file" id="reporte-foto" accept="image/*" style="display: none;" onchange="handleReporteImageUpload(event)">
+                    <div id="upload-area-reporte" class="upload-area" onclick="document.getElementById('reporte-foto').click()" style="padding: 20px;">
+                        <div id="upload-prompt-reporte">
+                            <i class="fa-solid fa-camera" style="font-size: 24px; color: var(--primary); margin-bottom: 8px;"></i>
+                            <h4 style="font-size: 14px;">Adicionar Foto</h4>
+                            <p style="color: var(--text-muted); font-size: 11px;">Clique para carregar ou tirar foto</p>
+                        </div>
+                        <div id="upload-preview-reporte" style="display: none; position: relative; width: 100%; max-height: 120px; overflow: hidden; border-radius: 6px;">
+                            <img id="upload-preview-img-reporte" src="" style="width: 100%; height: 100px; object-fit: contain;">
+                            <button type="button" class="btn btn-danger" style="position: absolute; top: 5px; right: 5px; padding: 4px 8px; font-size: 10px;" onclick="removerPreviewImagemReporte(event)">
+                                <i class="fa-solid fa-trash"></i> Remover
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="fecharModalReportar()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Publicar Alerta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="toast">
+        <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+        <span id="toast-message">Copiado com sucesso!</span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Roteamento Simples (SPA)
+        function switchPage(pageId) {
+            // Esconde todas as páginas
+            document.querySelectorAll('.page-view').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Remove 'active' do menu
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Mostra a página selecionada
+            document.getElementById('page-' + pageId).classList.add('active');
+            
+            // Ativa o item do menu correspondente
+            const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick').includes(pageId));
+            if(activeNav) activeNav.classList.add('active');
+
+            // Correção crucial para o Leaflet: renderizar o mapa corretamente ao exibir a div
+            if(pageId === 'mapa' && map) {
+                setTimeout(() => { map.invalidateSize(); }, 100);
+            }
+        }
+
+        // Inicialização do Mapa Leaflet (Focado em Maringá-PR com base no seu contexto atual)
+        const map = L.map('leaflet-map').setView([-23.4210, -51.9331], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const dangerIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        const warningIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        const orangeIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        const blueIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        const violetIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
+        });
+
+        // --- SISTEMA DE MAPA DE RESGATE & ALERTAS ---
+        let alertas = [
+            {
+                id: 1,
+                titulo: "Cachorro machucado",
+                categoria: "Urgente",
+                endereco: "Praça da Catedral, Centro",
+                descricao: "Cão de médio porte atropelado, com machucado na pata traseira. Bastante assustado.",
+                lat: -23.4250,
+                lng: -51.9380,
+                status: "Aberto",
+                imagem: ""
+            },
+            {
+                id: 2,
+                titulo: "Colônia de Gatos",
+                categoria: "Alimentação",
+                endereco: "Terreno Av. Mandacaru",
+                descricao: "Cerca de 6 gatos abandonados em um terreno baldio. Precisam de ração.",
+                lat: -23.4110,
+                lng: -51.9200,
+                status: "Aberto",
+                imagem: ""
+            }
+        ];
+
+        let activeMarkers = [];
+        let tempMarker = null;
+        let fotoReporteBase64 = null;
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371; // raio da Terra em km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function renderAlertas() {
+            // Limpa os marcadores existentes do mapa
+            activeMarkers.forEach(m => map.removeLayer(m));
+            activeMarkers = [];
+
+            const listContainer = document.getElementById('alertas-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = '';
+
+            // Coordenada do centro de Maringá (simulando a posição do usuário)
+            const userLat = -23.4210;
+            const userLng = -51.9331;
+
+            alertas.forEach(a => {
+                let icon = blueIcon;
+                let badgeClass = 'badge-blue';
+                
+                if (a.categoria === 'Urgente') {
+                    icon = dangerIcon;
+                    badgeClass = 'badge-red';
+                } else if (a.categoria === 'Alimentação') {
+                    icon = warningIcon;
+                    badgeClass = 'badge-warning';
+                } else if (a.categoria === 'Abandono') {
+                    icon = orangeIcon;
+                    badgeClass = 'badge-orange';
+                } else if (a.categoria === 'Perdido') {
+                    icon = blueIcon;
+                    badgeClass = 'badge-blue';
+                }
+
+                const popupContent = `
+                    <div style="font-family: 'Inter', sans-serif; min-width: 150px; line-height: 1.4;">
+                        <h4 style="margin: 0 0 5px; font-weight: 700; font-size: 13px; color: var(--secondary);">${a.titulo}</h4>
+                        <span class="badge ${badgeClass}" style="font-size: 10px; padding: 2px 6px; display: inline-block; margin-bottom: 5px;">${a.categoria}</span>
+                        <p style="margin: 0; font-size: 11px; color: var(--text-muted);"><i class="fa-solid fa-map-pin"></i> ${a.endereco}</p>
+                        ${a.descricao ? `<p style="margin: 5px 0 0; font-size: 11px; color: var(--text-main); font-style: italic;">"${a.descricao}"</p>` : ''}
+                        <p style="margin: 5px 0 0; font-size: 11px; font-weight: 600; color: ${a.status === 'Resolvido' ? '#10b981' : (a.status === 'Em Resgate' ? 'var(--primary)' : 'var(--danger)')};">Status: ${a.status}</p>
+                    </div>
+                `;
+                
+                const marker = L.marker([a.lat, a.lng], {icon: icon})
+                    .addTo(map)
+                    .bindPopup(popupContent);
+                
+                activeMarkers.push(marker);
+
+                const dist = calcularDistancia(userLat, userLng, a.lat, a.lng);
+                const distText = dist < 1 ? `${(dist * 1000).toFixed(0)} m daqui` : `${dist.toFixed(1)} km daqui`;
+
+                const card = document.createElement('div');
+                card.className = 'card report-card';
+                
+                let borderColor = 'var(--primary)';
+                if (a.categoria === 'Urgente') borderColor = 'var(--danger)';
+                else if (a.categoria === 'Alimentação') borderColor = 'var(--warning)';
+                else if (a.categoria === 'Abandono') borderColor = '#f97316';
+                
+                card.style.borderLeft = `4px solid ${borderColor}`;
+                card.style.cursor = 'pointer';
+                card.style.transition = 'transform 0.2s, box-shadow 0.2s';
+                card.style.padding = '15px';
+
+                card.onclick = (e) => {
+                    if (e.target.closest('button')) return;
+                    map.setView([a.lat, a.lng], 15);
+                    setTimeout(() => { marker.openPopup(); }, 150);
+                };
+
+                card.onmouseenter = () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 6px 12px rgba(0,0,0,0.05)'; };
+                card.onmouseleave = () => { card.style.transform = 'none'; card.style.boxShadow = 'none'; };
+
+                let btnHtml = '';
+                if (a.status === 'Aberto') {
+                    if (a.categoria === 'Urgente') {
+                        btnHtml = `<button type="button" class="btn btn-outline" style="width: 100%; font-size: 12px; padding: 6px; margin-top: 10px;" onclick="alterarStatusAlerta(${a.id}, 'Em Resgate')">Assumir Resgate</button>`;
+                    } else {
+                        btnHtml = `<button type="button" class="btn btn-outline" style="width: 100%; font-size: 12px; padding: 6px; margin-top: 10px;" onclick="alterarStatusAlerta(${a.id}, 'Em Resgate')">Oferecer Ajuda</button>`;
+                    }
+                } else if (a.status === 'Em Resgate') {
+                    btnHtml = `<button type="button" class="btn btn-primary" style="width: 100%; font-size: 12px; padding: 6px; margin-top: 10px; background: #10b981; color: white;" onclick="alterarStatusAlerta(${a.id}, 'Resolvido')"><i class="fa-solid fa-circle-check"></i> Concluir Resgate</button>`;
+                } else {
+                    btnHtml = `<div style="text-align: center; color: #10b981; font-weight: 600; font-size: 12px; padding: 6px 0; margin-top: 5px;"><i class="fa-solid fa-circle-check"></i> Resgate Concluído!</div>`;
+                }
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
+                        <span class="badge ${badgeClass}">${a.categoria}</span>
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${distText}</span>
+                    </div>
+                    <h4 style="font-size: 14px; margin-bottom: 5px; font-weight: 700; color: var(--secondary);">${a.titulo}</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 5px;"><i class="fa-solid fa-map-pin"></i> ${a.endereco}</p>
+                    ${a.descricao ? `<p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${a.descricao}</p>` : ''}
+                    ${btnHtml}
+                `;
+                
+                listContainer.appendChild(card);
+            });
+        }
+
+        function alterarStatusAlerta(id, novoStatus) {
+            const alerta = alertas.find(a => a.id === id);
+            if (!alerta) return;
+            
+            alerta.status = novoStatus;
+            renderAlertas();
+            
+            if (novoStatus === 'Em Resgate') {
+                mostrarToast(`Você assumiu o suporte para: "${alerta.titulo}"!`);
+            } else if (novoStatus === 'Resolvido') {
+                mostrarToast(`Sucesso! Alerta concluído/animal resgatado.`);
+            }
+        }
+
+        function abrirModalReportar(lat, lng) {
+            document.getElementById('modal-reportar').style.display = 'flex';
+            
+            let defaultLat = lat;
+            let defaultLng = lng;
+            
+            if (!defaultLat || !defaultLng) {
+                const center = map.getCenter();
+                defaultLat = center.lat;
+                defaultLng = center.lng;
+            }
+            
+            document.getElementById('reporte-lat').value = defaultLat.toFixed(6);
+            document.getElementById('reporte-lng').value = defaultLng.toFixed(6);
+            
+            if (tempMarker) {
+                tempMarker.setLatLng([defaultLat, defaultLng]);
+            } else {
+                tempMarker = L.marker([defaultLat, defaultLng], {icon: violetIcon, draggable: true}).addTo(map)
+                    .bindPopup('<b>Local de resgate selecionado</b><br>Arraste para ajustar a posição se necessário.').openPopup();
+                
+                tempMarker.on('dragend', function(event) {
+                    const position = event.target.getLatLng();
+                    document.getElementById('reporte-lat').value = position.lat.toFixed(6);
+                    document.getElementById('reporte-lng').value = position.lng.toFixed(6);
+                });
+            }
+            map.setView([defaultLat, defaultLng], 14);
+        }
+
+        function fecharModalReportar() {
+            document.getElementById('modal-reportar').style.display = 'none';
+            document.getElementById('modal-reportar-form').reset();
+            removerPreviewImagemReporte();
+            
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+                tempMarker = null;
+            }
+        }
+
+        function handleReporteImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('A imagem excede o tamanho máximo de 5MB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fotoReporteBase64 = e.target.result;
+                document.getElementById('upload-preview-img-reporte').src = e.target.result;
+                document.getElementById('upload-prompt-reporte').style.display = 'none';
+                document.getElementById('upload-preview-reporte').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removerPreviewImagemReporte(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('reporte-foto').value = '';
+            fotoReporteBase64 = null;
+            document.getElementById('upload-prompt-reporte').style.display = 'block';
+            document.getElementById('upload-preview-reporte').style.display = 'none';
+        }
+
+        function salvarReporte(event) {
+            event.preventDefault();
+            
+            const titulo = document.getElementById('reporte-titulo').value.trim();
+            const categoria = document.getElementById('reporte-categoria').value;
+            const endereco = document.getElementById('reporte-endereco').value.trim();
+            const lat = parseFloat(document.getElementById('reporte-lat').value);
+            const lng = parseFloat(document.getElementById('reporte-lng').value);
+            const descricao = document.getElementById('reporte-descricao').value.trim();
+            
+            const novoAlerta = {
+                id: alertas.length + 1,
+                titulo: titulo,
+                categoria: categoria,
+                endereco: endereco,
+                descricao: descricao,
+                lat: lat,
+                lng: lng,
+                status: "Aberto",
+                imagem: fotoReporteBase64 || ""
+            };
+            
+            alertas.unshift(novoAlerta);
+            
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+                tempMarker = null;
+            }
+            
+            renderAlertas();
+            fecharModalReportar();
+            mostrarToast(`Alerta "${titulo}" registrado com sucesso!`);
+        }
+
+        // Clique no mapa para capturar coordenadas
+        map.on('click', function(e) {
+            abrirModalReportar(e.latlng.lat, e.latlng.lng);
+        });
+
+        // --- SISTEMA DE APOIO FINANCEIRO / DOAÇÕES ---
+        let campanhaAtiva = null;
+        let totalDoadoGeral = 4250; // Valor inicial do Painel Inicial
+
+        function abrirApoioCampanha(id, titulo, descricao, meta, arrecadado, imagem) {
+            campanhaAtiva = {
+                id: id,
+                titulo: titulo,
+                descricao: descricao,
+                meta: meta,
+                arrecadado: arrecadado,
+                imagem: imagem,
+                doado: 50.0 // Valor padrão
+            };
+
+            // Preenche dados da esquerda (Resumo)
+            document.getElementById('apoio-img').src = imagem;
+            document.getElementById('apoio-titulo').innerText = titulo;
+            document.getElementById('apoio-desc').innerText = descricao;
+            document.getElementById('apoio-arrecadado-lbl').innerText = `Arrecadado: R$ ` + arrecadado.toLocaleString('pt-BR');
+            document.getElementById('apoio-meta-lbl').innerText = `Meta: R$ ` + meta.toLocaleString('pt-BR');
+            document.getElementById('apoio-progresso-bar').style.width = Math.min(((arrecadado / meta) * 100), 100) + `%`;
+
+            // Reseta estados do formulário
+            document.getElementById('apoio-checkout-flow').style.display = 'grid';
+            document.getElementById('apoio-sucesso').style.display = 'none';
+            document.getElementById('apoio-loading').style.display = 'none';
+            document.getElementById('apoio-valor-customizado').value = '';
+            
+            // Reseta os botões de valor (seleciona o R$ 50 por padrão)
+            document.querySelectorAll('.value-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.includes('50')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Reseta os campos de cartão
+            document.getElementById('cc-number').value = '';
+            document.getElementById('cc-name').value = '';
+            document.getElementById('cc-expiry').value = '';
+            document.getElementById('cc-cvv').value = '';
+
+            // Atualiza o botão de submit
+            atualizarTextoBotaoSubmit(50);
+
+            // Abre a aba Pix por padrão
+            switchMetodoPagamento('pix');
+
+            // Navega para a página de apoio
+            switchPage('apoiar');
+        }
+
+        function selecionarValor(valor, btnElement) {
+            // Remove a classe active de todos os botões de valor
+            document.querySelectorAll('.value-btn').forEach(btn => btn.classList.remove('active'));
+            // Adiciona no botão clicado
+            if (btnElement) btnElement.classList.add('active');
+            
+            // Limpa o valor customizado
+            document.getElementById('apoio-valor-customizado').value = '';
+            
+            campanhaAtiva.doado = parseFloat(valor);
+            atualizarTextoBotaoSubmit(valor);
+        }
+
+        function selecionarValorCustomizado(valorStr) {
+            // Remove a classe active de todos os botões de valor
+            document.querySelectorAll('.value-btn').forEach(btn => btn.classList.remove('active'));
+            
+            let valor = parseFloat(valorStr);
+            if (isNaN(valor) || valor <= 0) {
+                valor = 0;
+            }
+            
+            campanhaAtiva.doado = valor;
+            atualizarTextoBotaoSubmit(valor);
+        }
+
+        function atualizarTextoBotaoSubmit(valor) {
+            const btn = document.getElementById('apoio-btn-submit');
+            btn.innerText = `Confirmar Apoio de R$ ` + valor.toFixed(2).replace('.', ',');
+        }
+
+        function switchMetodoPagamento(metodo) {
+            // Desativa todas as abas e painéis
+            document.querySelectorAll('.payment-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.payment-pane').forEach(pane => pane.classList.remove('active'));
+
+            // Ativa o selecionado
+            document.getElementById('tab-' + metodo).classList.add('active');
+            document.getElementById('pane-' + metodo).classList.add('active');
+
+            // Gerencia os campos obrigatórios do cartão
+            const camposCartao = ['cc-number', 'cc-name', 'cc-expiry', 'cc-cvv'];
+            camposCartao.forEach(id => {
+                const el = document.getElementById(id);
+                if (metodo === 'cartao') {
+                    el.setAttribute('required', 'required');
+                } else {
+                    el.removeAttribute('required');
+                }
+            });
+        }
+
+        function copiarTexto(inputId, mensagemToast) {
+            const inputEl = document.getElementById(inputId);
+            inputEl.select();
+            inputEl.setSelectionRange(0, 99999); // Para mobile
+
+            navigator.clipboard.writeText(inputEl.value).then(() => {
+                mostrarToast(mensagemToast);
+            }).catch(err => {
+                // Fallback para navegadores sem suporte ao clipboard API
+                try {
+                    document.execCommand('copy');
+                    mostrarToast(mensagemToast);
+                } catch (e) {
+                    alert('Não foi possível copiar o código. Copie manualmente.');
+                }
+            });
+        }
+
+        function mostrarToast(mensagem) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-message').innerText = mensagem;
+            toast.style.display = 'flex';
+            
+            // Esconde após 3 segundos
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease-in';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                    toast.style.animation = ''; // Limpa a animação
+                }, 300);
+            }, 3000);
+        }
+
+        function processarDoacao(event) {
+            event.preventDefault();
+
+            if (!campanhaAtiva || campanhaAtiva.doado <= 0) {
+                alert('Por favor, selecione um valor de doação válido.');
+                return;
+            }
+
+            // Exibe o spinner de carregamento
+            document.getElementById('apoio-loading').style.display = 'flex';
+
+            // Simula o delay da rede (gateway de pagamento)
+            setTimeout(() => {
+                // Oculta o loader
+                document.getElementById('apoio-loading').style.display = 'none';
+
+                // Calcula novos valores
+                const valorDoacao = campanhaAtiva.doado;
+                const novoArrecadado = campanhaAtiva.arrecadado + valorDoacao;
+                
+                // 1. Atualiza a campanha na base de dados e re-renderiza
+                const v = vaquinhas.find(item => item.id === campanhaAtiva.id);
+                if (v) {
+                    v.arrecadado = novoArrecadado;
+                }
+                renderVaquinhas();
+                renderLarPets();
+
+                // 2. Atualiza o dashboard global
+                totalDoadoGeral += valorDoacao;
+                const dashArrecadacao = document.getElementById('dashboard-arrecadacao');
+                if (dashArrecadacao) {
+                    dashArrecadacao.innerText = `R$ ` + totalDoadoGeral.toLocaleString('pt-BR');
+                }
+
+                // 3. Popula a tela de sucesso
+                const doadorNome = document.getElementById('doador-nome').value.trim() || 'Doador';
+                document.getElementById('sucesso-doador').innerText = doadorNome.split(' ')[0]; // Apenas o primeiro nome
+                document.getElementById('sucesso-valor').innerText = `R$ ` + valorDoacao.toFixed(2).replace('.', ',');
+                
+                const sucessoCampanhaEl = document.getElementById('sucesso-campanha');
+                if (sucessoCampanhaEl) sucessoCampanhaEl.innerText = campanhaAtiva.titulo;
+                
+                document.getElementById('sucesso-progresso-lbl').innerText = `R$ ` + novoArrecadado.toLocaleString('pt-BR') + ` arrecadados`;
+                document.getElementById('sucesso-meta-lbl').innerText = `Meta: R$ ` + campanhaAtiva.meta.toLocaleString('pt-BR');
+                document.getElementById('sucesso-progresso-bar').style.width = Math.min(((novoArrecadado / campanhaAtiva.meta) * 100), 100) + `%`;
+
+                // Chaveia para a tela de sucesso
+                document.getElementById('apoio-checkout-flow').style.display = 'none';
+                document.getElementById('apoio-sucesso').style.display = 'block';
+
+            }, 1500); // 1.5s de simulação
+        }
+
+        function finalizarRetornoCampanhas() {
+            switchPage('doacao');
+        }
+
+        // --- SISTEMA DE CADASTRO E VITRINE DE ADOÇÃO ---
+        let pets = [
+            {
+                nome: "Amendoim",
+                especie: "Cachorro",
+                porte: "Pequeno",
+                idade: "2 anos",
+                sexo: "Macho",
+                tags: ["Vacinado", "Castrado"],
+                localizacao: "Abrigo Municipal - Centro",
+                imagem: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=600&q=80"
+            },
+            {
+                nome: "Mia",
+                especie: "Gato",
+                porte: "Pequeno",
+                idade: "1 ano",
+                sexo: "Fêmea",
+                tags: ["FIV/FeLV Neg.", "Castrada"],
+                localizacao: "Lar Temporário da Ana",
+                imagem: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=600&q=80"
+            },
+            {
+                nome: "Duke",
+                especie: "Cachorro",
+                porte: "Grande",
+                idade: "3 anos",
+                sexo: "Macho",
+                tags: ["Dócil", "Necessita Espaço"],
+                localizacao: "ONG Vida Animal - Zona Sul",
+                imagem: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=600&q=80"
+            }
+        ];
+
+        let fotoPreviewBase64 = null;
+        let filtroPorteAtivo = 'Todos';
+        let totalResgatadosGeral = 124; // Valor inicial do Painel Inicial
+
+        // Renderiza a lista de pets
+        function renderPets(listaFiltered) {
+            const petGrid = document.getElementById('pet-grid');
+            if (!petGrid) return;
+            
+            petGrid.innerHTML = '';
+            const lista = listaFiltered || pets;
+
+            if (lista.length === 0) {
+                petGrid.innerHTML = `
+                    <div style="grid-column: span 3; text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i class="fa-solid fa-paw" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
+                        <p>Nenhum animal encontrado com os filtros selecionados.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            lista.forEach(pet => {
+                const card = document.createElement('div');
+                card.className = 'card pet-card';
+                
+                const sexIcon = pet.sexo === 'Macho' 
+                    ? '<i class="fa-solid fa-mars" style="color: #3b82f6;"></i>' 
+                    : '<i class="fa-solid fa-venus" style="color: #ec4899;"></i>';
+                
+                const tagsHtml = pet.tags.map(tag => `<span class="badge badge-green">${tag}</span>`).join('');
+
+                card.innerHTML = `
+                    <img src="${pet.imagem}" alt="${pet.nome}" class="pet-img">
+                    <div class="pet-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="font-size: 20px;">${pet.nome}</h2>
+                            ${sexIcon}
+                        </div>
+                        <div class="pet-tags" style="display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap;">
+                            ${tagsHtml}
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin: 10px 0;">
+                            <i class="fa-solid fa-location-dot"></i> ${pet.localizacao}
+                        </p>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="iniciarConversaAdocao('${pet.nome}', '${pet.imagem}')">Quero Adotar</button>
+                    </div>
+                `;
+                petGrid.appendChild(card);
+            });
+        }
+
+        // Upload de imagem no cadastro
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Valida tamanho de arquivo (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('A imagem excede o tamanho máximo de 5MB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fotoPreviewBase64 = e.target.result;
+                document.getElementById('upload-preview-img').src = e.target.result;
+                document.getElementById('upload-prompt').style.display = 'none';
+                document.getElementById('upload-preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removerPreviewImagem(event) {
+            if (event) event.stopPropagation(); // Evita reabrir o seletor
+            document.getElementById('cadastro-foto').value = '';
+            fotoPreviewBase64 = null;
+            document.getElementById('upload-prompt').style.display = 'block';
+            document.getElementById('upload-preview').style.display = 'none';
+        }
+
+        // Salvar cadastro de animal
+        function cadastrarAnimal(event) {
+            event.preventDefault();
+
+            let nome = document.getElementById('cadastro-nome').value.trim();
+            if (!nome) {
+                nome = 'Amiguinho sem Nome';
+            }
+
+            const especie = document.getElementById('cadastro-especie').value;
+            const sexo = document.getElementById('cadastro-sexo').value;
+            const porte = document.getElementById('cadastro-porte').value;
+            const idade = document.getElementById('cadastro-idade').value.trim() || 'Idade desconhecida';
+            const descricao = document.getElementById('cadastro-descricao').value.trim();
+
+            // Determinar imagem (Base64 ou fallback Unsplash bonito)
+            let imagem = fotoPreviewBase64;
+            if (!imagem) {
+                if (especie === 'Cachorro') {
+                    imagem = 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=600&q=80';
+                } else if (especie === 'Gato') {
+                    imagem = 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?auto=format&fit=crop&w=600&q=80';
+                } else {
+                    imagem = 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=600&q=80';
+                }
+            }
+
+            // Gerar tags de saúde baseadas nos checkboxes e sexo
+            const tags = [];
+            const isFemea = sexo === 'Fêmea';
+
+            if (document.getElementById('cadastro-castrado').checked) {
+                tags.push(isFemea ? 'Castrada' : 'Castrado');
+            }
+            if (document.getElementById('cadastro-vacinado').checked) {
+                tags.push(isFemea ? 'Vacinada' : 'Vacinado');
+            }
+            if (document.getElementById('cadastro-vermifugado').checked) {
+                tags.push(isFemea ? 'Vermifugada' : 'Vermifugado');
+            }
+            if (document.getElementById('cadastro-especial').checked) {
+                tags.push('Especial');
+            }
+
+            // Fallback tags se nada for selecionado
+            if (tags.length === 0) {
+                tags.push('Resgatado');
+                tags.push(especie);
+            }
+
+            // Novo pet objeto
+            const novoPet = {
+                nome: nome,
+                especie: especie,
+                porte: porte,
+                idade: idade,
+                sexo: sexo,
+                tags: tags,
+                localizacao: 'ONG Vida Animal - Maringá, PR',
+                imagem: imagem
+            };
+
+            // Adiciona na lista global
+            pets.unshift(novoPet); // Adiciona no início da lista
+
+            // Incrementa contagem do Dashboard
+            totalResgatadosGeral++;
+            const dashResgatados = document.getElementById('dashboard-resgatados');
+            if (dashResgatados) {
+                dashResgatados.innerText = totalResgatadosGeral;
+            }
+
+            // Limpa o formulário e preview
+            document.getElementById('cadastro-form').reset();
+            removerPreviewImagem();
+
+            // Feedback visual e redirecionamento
+            mostrarToast(`${nome} cadastrado(a) com sucesso!`);
+            renderPets();
+            switchPage('adocao');
+        }
+
+        // Gerenciamento de filtros de busca da vitrine
+        function selecionarFiltroPorte(porte, btn) {
+            // Remove a classe active de todos os botões de porte
+            document.querySelectorAll('.filtro-porte-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#f1f5f9';
+                b.style.color = 'var(--text-muted)';
+            });
+
+            // Ativa o clicado
+            btn.classList.add('active');
+            btn.style.background = 'var(--primary)';
+            btn.style.color = 'white';
+
+            filtroPorteAtivo = porte;
+        }
+
+        function aplicarFiltrosAdocao() {
+            const local = document.getElementById('filtro-localizacao').value.trim().toLowerCase();
+            
+            // Pega espécie selecionada via radio button
+            const specieRadio = document.querySelector('input[name="specie"]:checked');
+            const especieSelected = specieRadio ? specieRadio.value : 'Todos';
+
+            const filtered = pets.filter(pet => {
+                // Filtro espécie
+                let matchEspecie = true;
+                if (especieSelected === 'Cachorro') {
+                    matchEspecie = pet.especie === 'Cachorro';
+                } else if (especieSelected === 'Gato') {
+                    matchEspecie = pet.especie === 'Gato';
+                }
+
+                // Filtro porte
+                let matchPorte = true;
+                if (filtroPorteAtivo !== 'Todos') {
+                    matchPorte = pet.porte === filtroPorteAtivo;
+                }
+
+                // Filtro localização
+                let matchLocal = true;
+                if (local) {
+                    matchLocal = pet.localizacao.toLowerCase().includes(local);
+                }
+
+                return matchEspecie && matchPorte && matchLocal;
+            });
+
+            renderPets(filtered);
+            mostrarToast(`Filtros aplicados! ${filtered.length} animais encontrados.`);
+        }
+
+        // --- GESTÃO E INTERATIVIDADE DO LAR TEMPORÁRIO (JS BUSINESS LOGIC) ---
+        let currentShelterName = "ONG Vida Animal";
+
+        // Banco de Dados de Animais Adotados
+        let adotados = [
+            { 
+                nome: "Pipoca", 
+                especie: "Gato", 
+                porte: "Pequeno", 
+                sexo: "Macho", 
+                imagem: "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=150&q=80", 
+                adotante: "Mariana Silva", 
+                data: "12/05/2026" 
+            },
+            { 
+                nome: "Luna", 
+                especie: "Cachorro", 
+                porte: "Médio", 
+                sexo: "Fêmea", 
+                imagem: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=150&q=80", 
+                adotante: "Ricardo Santos", 
+                data: "28/05/2026" 
+            }
+        ];
+
+        // Banco de Dados de Vaquinhas
+        let vaquinhas = [
+            {
+                id: 1,
+                titulo: "Cirurgia Ortopédica do Bob",
+                descricao: "Bob foi atropelado e precisa de cirurgia urgente no fêmur.",
+                meta: 2000,
+                arrecadado: 1300,
+                categoria: "Cirurgia",
+                badgeClass: "badge-red",
+                tempoRestante: "5 dias restantes",
+                imagem: "https://images.unsplash.com/photo-1593134257782-e89567b7718a?auto=format&fit=crop&w=300&q=80"
+            },
+            {
+                id: 2,
+                titulo: "Reforma dos Canis - ONG SOS",
+                descricao: "Precisamos cobrir o teto para o inverno rigoroso que se aproxima.",
+                meta: 5000,
+                arrecadado: 1500,
+                categoria: "Estrutura",
+                badgeClass: "badge-blue",
+                tempoRestante: "Contínuo",
+                imagem: "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=300&q=80"
+            }
+        ];
+
+        // Banco de Dados de Insumos no Mural
+        let insumosMural = [
+            { id: 1, produto: "Ração Filhotes (Gatos)", local: "Lar Temporário Ana", icone: "fa-bowl-food" },
+            { id: 2, produto: "Vermífugo / Antipulgas", local: "ONG Vida Animal", icone: "fa-pills" },
+            { id: 3, produto: "Cobertores e Caminhas", local: "Abrigo Municipal", icone: "fa-blanket" }
+        ];
+
+        // Banco de Dados de Chat/Mensagens
+        let conversas = [
+            {
+                id: 1,
+                nome: "Ana Souza",
+                pet: "Duke",
+                avatar: "https://i.pravatar.cc/100?img=1",
+                status: "Online",
+                mensagens: [
+                    { remetente: "adotante", texto: "Olá! Vi o Duke na vitrine e me apaixonei. Ele se dá bem com gatos?", tempo: "14:20" },
+                    { remetente: "lar", texto: "Olá Ana! O Duke é super manso e brincalhão, se dá muito bem com outros animais sim!", tempo: "14:25" },
+                    { remetente: "adotante", texto: "Que ótimo! Gostaria de agendar uma visita para conhecê-lo. É possível?", tempo: "14:30" }
+                ]
+            },
+            {
+                id: 2,
+                nome: "Ricardo Santos",
+                pet: "Mia",
+                avatar: "https://i.pravatar.cc/100?img=12",
+                status: "Offline",
+                mensagens: [
+                    { remetente: "adotante", texto: "Olá, gostaria de saber mais informações sobre a Mia. Ela é muito ativa?", tempo: "Ontem" },
+                    { remetente: "lar", texto: "Olá Ricardo! A Mia é calma, gosta de dormir no sol e é bem carinhosa.", tempo: "Ontem" }
+                ]
+            }
+        ];
+        let conversaAtivaId = 1;
+
+        // Renderização dos Animais no Painel do Lar
+        function renderLarPets() {
+            const hospedadosGrid = document.getElementById('lar-hospedados-grid');
+            const adotadosGrid = document.getElementById('lar-adotados-grid');
+            if (!hospedadosGrid || !adotadosGrid) return;
+
+            // Filtra hospedados ativos com base no nome atual do lar
+            let ativos = pets.filter(p => p.localizacao.includes(currentShelterName));
+
+            // Atualiza os indicadores superiores
+            document.getElementById('lar-total-ativos').innerText = ativos.length;
+            document.getElementById('lar-total-adotados').innerText = adotados.length;
+            document.getElementById('lar-total-vaquinhas').innerText = vaquinhas.length;
+
+            // Renderiza Hospedados Ativos
+            hospedadosGrid.innerHTML = '';
+            if (ativos.length === 0) {
+                hospedadosGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i class="fa-solid fa-paw" style="font-size: 32px; margin-bottom: 10px; opacity: 0.3;"></i>
+                        <p>Nenhum animal hospedado no momento.</p>
+                    </div>
+                `;
+            } else {
+                ativos.forEach(pet => {
+                    const card = document.createElement('div');
+                    card.className = 'admin-pet-card';
+                    
+                    const sexIcon = pet.sexo === 'Macho' 
+                        ? '<i class="fa-solid fa-mars" style="color: #3b82f6;"></i>' 
+                        : '<i class="fa-solid fa-venus" style="color: #ec4899;"></i>';
+                    
+                    card.innerHTML = `
+                        <img src="${pet.imagem}" class="admin-pet-img" alt="${pet.nome}">
+                        <div style="flex-grow: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4 style="font-weight: 600; font-size: 15px; color: var(--text-main);">${pet.nome}</h4>
+                                ${sexIcon}
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">${pet.especie} • ${pet.porte} • ${pet.idade}</p>
+                            <span class="badge badge-blue" style="margin-top: 5px; display: inline-block; font-size: 11px;">Hospedado</span>
+                        </div>
+                    `;
+                    hospedadosGrid.appendChild(card);
+                });
+            }
+
+            // Renderiza Histórico de Adotados
+            adotadosGrid.innerHTML = '';
+            if (adotados.length === 0) {
+                adotadosGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i class="fa-solid fa-circle-check" style="font-size: 32px; margin-bottom: 10px; opacity: 0.3;"></i>
+                        <p>Nenhum histórico de adoção registrado.</p>
+                    </div>
+                `;
+            } else {
+                adotados.forEach(pet => {
+                    const card = document.createElement('div');
+                    card.className = 'admin-pet-card';
+                    
+                    const sexIcon = pet.sexo === 'Macho' 
+                        ? '<i class="fa-solid fa-mars" style="color: #3b82f6;"></i>' 
+                        : '<i class="fa-solid fa-venus" style="color: #ec4899;"></i>';
+                    
+                    card.innerHTML = `
+                        <img src="${pet.imagem}" class="admin-pet-img" alt="${pet.nome}">
+                        <div style="flex-grow: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4 style="font-weight: 600; font-size: 15px; color: var(--text-main);">${pet.nome}</h4>
+                                ${sexIcon}
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Adotado por: <strong>${pet.adotante}</strong></p>
+                            <p style="font-size: 11px; color: var(--primary-dark); font-weight: 500; margin-top: 2px;">
+                                <i class="fa-regular fa-calendar-check"></i> Em ${pet.data}
+                            </p>
+                        </div>
+                    `;
+                    adotadosGrid.appendChild(card);
+                });
+            }
+        }
+
+        // Alternância de Abas no Painel do Lar
+        function switchAbaLar(aba) {
+            document.getElementById('tab-btn-hospedados').classList.remove('active');
+            document.getElementById('tab-btn-adotados').classList.remove('active');
+            document.getElementById('pane-lar-hospedados').style.display = 'none';
+            document.getElementById('pane-lar-adotados').style.display = 'none';
+            
+            if (aba === 'hospedados') {
+                document.getElementById('tab-btn-hospedados').classList.add('active');
+                document.getElementById('pane-lar-hospedados').style.display = 'block';
+            } else {
+                document.getElementById('tab-btn-adotados').classList.add('active');
+                document.getElementById('pane-lar-adotados').style.display = 'block';
+            }
+        }
+
+        // Modais do Painel do Lar
+        function abrirModalVaquinha() {
+            document.getElementById('modal-vaquinha').style.display = 'flex';
+        }
+
+        function fecharModalVaquinha() {
+            document.getElementById('modal-vaquinha').style.display = 'none';
+            document.getElementById('modal-vaquinha-form').reset();
+        }
+
+        function criarVaquinhaLar(event) {
+            event.preventDefault();
+            
+            const titulo = document.getElementById('vaquinha-titulo').value.trim();
+            const meta = parseFloat(document.getElementById('vaquinha-meta').value);
+            const descricao = document.getElementById('vaquinha-descricao').value.trim();
+            
+            if (!titulo || isNaN(meta) || meta <= 0 || !descricao) {
+                alert("Por favor, preencha todos os campos obrigatórios.");
+                return;
+            }
+            
+            const novoId = vaquinhas.length + 1;
+            
+            const fotosAdicionais = [
+                "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=300&q=80",
+                "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=300&q=80",
+                "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=300&q=80"
+            ];
+            const randomImg = fotosAdicionais[novoId % fotosAdicionais.length];
+
+            const novaVaquinha = {
+                id: novoId,
+                titulo: titulo,
+                descricao: descricao,
+                meta: meta,
+                arrecadado: 0,
+                categoria: "Emergência",
+                badgeClass: "badge-red",
+                tempoRestante: "30 dias restantes",
+                imagem: randomImg
+            };
+            
+            vaquinhas.unshift(novaVaquinha);
+            
+            // Re-render
+            renderVaquinhas();
+            renderLarPets();
+            
+            fecharModalVaquinha();
+            mostrarToast(`Campanha "${titulo}" publicada com sucesso!`);
+        }
+
+        function abrirModalInsumos() {
+            document.getElementById('modal-insumos').style.display = 'flex';
+            atualizarLabelJustificativa('solicitar');
+        }
+
+        function fecharModalInsumos() {
+            document.getElementById('modal-insumos').style.display = 'none';
+            document.getElementById('modal-insumos-form').reset();
+        }
+
+        function atualizarLabelJustificativa(acao) {
+            const label = document.getElementById('insumo-justificativa-label');
+            const btn = document.getElementById('insumo-submit-btn');
+            
+            if (acao === 'solicitar') {
+                label.innerText = 'Justificativa / Observação *';
+                btn.innerText = 'Solicitar Doação';
+                document.getElementById('insumo-justificativa').placeholder = 'Ex: Recebemos 3 filhotes e estamos sem ração...';
+            } else {
+                label.innerText = 'Motivo da Retirada / Destinatário *';
+                btn.innerText = 'Retirar do Estoque';
+                document.getElementById('insumo-justificativa').placeholder = 'Ex: Ração consumida pelos filhotes hospedados esta semana.';
+            }
+        }
+
+        function processarInsumosLar(event) {
+            event.preventDefault();
+            
+            const produto = document.getElementById('insumo-produto').value;
+            const quantidade = parseInt(document.getElementById('insumo-quantidade').value);
+            const acao = document.getElementById('insumo-acao').value;
+            const justificativa = document.getElementById('insumo-justificativa').value.trim();
+            
+            if (isNaN(quantidade) || quantidade <= 0 || !justificativa) {
+                alert("Por favor, preencha todos os campos obrigatórios.");
+                return;
+            }
+            
+            if (acao === 'solicitar') {
+                let icone = "fa-box";
+                if (produto.includes("Ração")) icone = "fa-bowl-food";
+                else if (produto.includes("Vermífugo") || produto.includes("Medicamento")) icone = "fa-pills";
+                else if (produto.includes("Cobertores")) icone = "fa-blanket";
+                
+                const novoInsumo = {
+                    id: insumosMural.length + 1,
+                    produto: `${produto} (${quantidade}x)`,
+                    local: currentShelterName,
+                    icone: icone
+                };
+                
+                insumosMural.push(novoInsumo);
+                renderInsumosMural();
+                mostrarToast(`Solicitação de ${produto} adicionada ao mural!`);
+            } else {
+                mostrarToast(`Sucesso! ${quantidade}x ${produto} retirados do estoque central.`);
+            }
+            
+            fecharModalInsumos();
+        }
+
+        // Renderização do Mural de Insumos e Vaquinhas
+        function renderVaquinhas() {
+            const container = document.getElementById('vaquinhas-container');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            vaquinhas.forEach(v => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.display = 'flex';
+                card.style.gap = '20px';
+                
+                const pct = Math.min(((v.arrecadado / v.meta) * 100), 100).toFixed(0);
+                
+                card.innerHTML = `
+                    <img src="${v.imagem}" style="width: 140px; height: 140px; border-radius: 8px; object-fit: cover;">
+                    <div style="flex-grow: 1;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span class="badge ${v.badgeClass || 'badge-red'}">${v.categoria}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);"><i class="fa-solid fa-clock"></i> ${v.tempoRestante}</span>
+                        </div>
+                        <h3 style="margin: 10px 0 5px; font-size: 16px;">${v.titulo}</h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">${v.descricao}</p>
+                        
+                        <div class="progress-bar"><div id="progresso-fill-${v.id}" class="progress-fill" style="width: ${pct}%;"></div></div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
+                            <span id="arrecadado-txt-${v.id}">Arrecadado: R$ ${v.arrecadado.toLocaleString('pt-BR')}</span>
+                            <span style="color: var(--text-muted);">Meta: R$ ${v.meta.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="abrirApoioCampanha(${v.id}, '${v.titulo.replace(/'/g, "\\'")}', '${v.descricao.replace(/'/g, "\\'")}', ${v.meta}, ${v.arrecadado}, '${v.imagem}')">Apoiar Financeiramente</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderInsumosMural() {
+            const container = document.getElementById('mural-insumos-container');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            insumosMural.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.textAlign = 'center';
+                
+                card.innerHTML = `
+                    <i class="fa-solid ${item.icone}" style="font-size: 32px; color: var(--secondary); margin-bottom: 10px;"></i>
+                    <h4 style="font-size: 15px;">${item.produto}</h4>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 10px 0;">${item.local}</p>
+                    <button class="btn btn-outline" style="width: 100%; font-size: 13px;" onclick="alert('Obrigado! Um e-mail de contato foi enviado para o responsável por este item.')">Combinar Entrega</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Lógica do Sistema de Chat/Mensagens
+        function renderConversas() {
+            const contactsContainer = document.getElementById('chat-contacts');
+            if (!contactsContainer) return;
+            
+            contactsContainer.innerHTML = '';
+            
+            conversas.forEach(c => {
+                const lastMsg = c.mensagens[c.mensagens.length - 1];
+                const lastMsgText = lastMsg ? lastMsg.texto : '';
+                const lastMsgTime = lastMsg ? lastMsg.tempo : '';
+                
+                const activeClass = c.id === conversaAtivaId ? 'active' : '';
+                
+                const item = document.createElement('div');
+                item.className = `contact-item ${activeClass}`;
+                item.onclick = () => { selectConversa(c.id); };
+                
+                item.innerHTML = `
+                    <img src="${c.avatar}" class="contact-avatar" alt="${c.nome}">
+                    <div class="contact-details">
+                        <div class="contact-name">
+                            <span>${c.nome}</span>
+                            <span style="font-weight: 400; font-size: 11px; color: var(--text-muted);">${lastMsgTime}</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 2px;">Interesse: ${c.pet}</div>
+                        <div class="contact-preview">${lastMsgText}</div>
+                    </div>
+                `;
+                contactsContainer.appendChild(item);
+            });
+            
+            const badges = document.querySelectorAll('.badge-notification');
+            badges.forEach(b => {
+                b.innerText = conversas.length;
+            });
+        }
+
+        function selectConversa(id) {
+            conversaAtivaId = id;
+            
+            document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('active'));
+            
+            const conversa = conversas.find(c => c.id === id);
+            if (!conversa) return;
+            
+            renderConversas();
+            
+            document.getElementById('chat-active-avatar').src = conversa.avatar;
+            document.getElementById('chat-active-name').innerText = `${conversa.nome} (Interesse em ${conversa.pet})`;
+            
+            const statusEl = document.getElementById('chat-active-status');
+            if (conversa.status === 'Online') {
+                statusEl.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 8px; margin-right: 5px; color: #10b981;"></i> Online`;
+                statusEl.style.color = '#10b981';
+            } else {
+                statusEl.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 8px; margin-right: 5px; color: #94a3b8;"></i> Offline`;
+                statusEl.style.color = '#94a3b8';
+            }
+                
+            const viewport = document.getElementById('chat-viewport');
+            viewport.innerHTML = '';
+            
+            conversa.mensagens.forEach(msg => {
+                const bubble = document.createElement('div');
+                const isSent = msg.remetente === 'lar';
+                bubble.className = `chat-bubble ${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'}`;
+                
+                bubble.innerHTML = `
+                    ${msg.texto}
+                    <span class="chat-message-time">${msg.tempo}</span>
+                `;
+                viewport.appendChild(bubble);
+            });
+            
+            setTimeout(() => { viewport.scrollTop = viewport.scrollHeight; }, 50);
+        }
+
+        function enviarMensagemChat(event) {
+            event.preventDefault();
+            
+            const input = document.getElementById('chat-input-field');
+            const texto = input.value.trim();
+            if (!texto) return;
+            
+            const conversa = conversas.find(c => c.id === conversaAtivaId);
+            if (!conversa) return;
+            
+            const now = new Date();
+            const hora = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            
+            conversa.mensagens.push({
+                remetente: 'lar',
+                texto: texto,
+                tempo: hora
+            });
+            
+            input.value = '';
+            selectConversa(conversaAtivaId);
+            
+            setTimeout(() => {
+                if (conversaAtivaId === conversa.id) {
+                    const respostasSimuladas = [
+                        "Perfeito! Vou ver certinho e aviso você para combinarmos a visita.",
+                        "Muito obrigado! O trabalho de vocês é lindo.",
+                        "Entendido! Vou me planejar e volto a falar com você.",
+                        "Maravilha, agradeço muito o retorno."
+                    ];
+                    const randomResposta = respostasSimuladas[Math.floor(Math.random() * respostasSimuladas.length)];
+                    
+                    conversa.mensagens.push({
+                        remetente: 'adotante',
+                        texto: randomResposta,
+                        tempo: new Date().getHours().toString().padStart(2, '0') + ':' + new Date().getMinutes().toString().padStart(2, '0')
+                    });
+                    
+                    selectConversa(conversa.id);
+                }
+            }, 2000);
+        }
+
+        function iniciarConversaAdocao(petNome, petImg) {
+            let conversaExistente = conversas.find(c => c.pet === petNome);
+            
+            if (!conversaExistente) {
+                const nomesAdotantes = ["Mariana Silva", "Lucas Pinheiro", "Beatriz Costa", "Bruno Albuquerque", "Juliana Lins"];
+                const nomeAleatorio = nomesAdotantes[Math.floor(Math.random() * nomesAdotantes.length)];
+                const avatarNum = Math.floor(Math.random() * 50) + 1;
+                
+                const novaConversa = {
+                    id: conversas.length + 1,
+                    nome: nomeAleatorio,
+                    pet: petNome,
+                    avatar: `https://i.pravatar.cc/100?img=${avatarNum}`,
+                    status: "Online",
+                    mensagens: [
+                        { remetente: "adotante", texto: `Olá! Estou muito interessado(a) em adotar o(a) ${petNome}. Ele(a) está disponível para visitas?`, tempo: "Agora" }
+                    ]
+                };
+                
+                conversas.unshift(novaConversa);
+                conversaAtivaId = novaConversa.id;
+            } else {
+                conversaAtivaId = conversaExistente.id;
+            }
+            
+            switchPage('chat');
+            selectConversa(conversaAtivaId);
+            mostrarToast(`Conversa iniciada com interessado em ${petNome}!`);
+        }
+
+        // Lógica da Página do Perfil
+        function atualizarVagasPreview() {
+            const capInput = document.getElementById('perfil-input-capacidade');
+            let totalCap = parseInt(capInput.value);
+            if (isNaN(totalCap) || totalCap <= 0) totalCap = 1;
+            
+            let ativos = pets.filter(p => p.localizacao.includes(currentShelterName));
+            let hospedadosCount = ativos.length;
+            
+            document.getElementById('perfil-hospedados-atual').innerText = hospedadosCount;
+            document.getElementById('perfil-capacidade-lbl').innerText = totalCap;
+            
+            const pct = Math.min(((hospedadosCount / totalCap) * 100), 100);
+            document.getElementById('perfil-capacidade-bar').style.width = pct + '%';
+            
+            const vagasRestantes = Math.max(0, totalCap - hospedadosCount);
+            document.getElementById('perfil-vagas-restantes').innerText = vagasRestantes;
+        }
+
+        function salvarPerfilLar(event) {
+            event.preventDefault();
+            
+            const novoNome = document.getElementById('perfil-input-nome').value.trim();
+            const novoLocal = document.getElementById('perfil-input-local').value.trim();
+            const novaCapacidade = parseInt(document.getElementById('perfil-input-capacidade').value);
+            
+            if (!novoNome || !novoLocal || isNaN(novaCapacidade) || novaCapacidade <= 0) {
+                alert("Por favor, preencha todos os campos obrigatórios.");
+                return;
+            }
+            
+            const oldShelterName = currentShelterName;
+            currentShelterName = novoNome;
+            
+            pets.forEach(p => {
+                if (p.localizacao.includes(oldShelterName)) {
+                    p.localizacao = p.localizacao.replace(oldShelterName, novoNome);
+                }
+            });
+            
+            document.getElementById('sidebar-user-name').innerText = novoNome;
+            document.getElementById('sidebar-user-location').innerText = novoLocal;
+            document.getElementById('perfil-name-side').innerText = novoNome;
+            
+            atualizarVagasPreview();
+            
+            renderLarPets();
+            renderPets();
+            
+            mostrarToast("Perfil atualizado com sucesso!");
+        }
+
+        // Renderização inicial geral
+        renderPets();
+        renderLarPets();
+        renderVaquinhas();
+        renderInsumosMural();
+        renderConversas();
+        selectConversa(conversaAtivaId);
+        atualizarVagasPreview();
+        renderAlertas();
+    </script>
+</body>
+</html>
